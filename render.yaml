@@ -18,5 +18,5 @@ services:
 
 databases:
   - name: ai-learning-db
-    databaseName: AiStudyAssistant
+    databaseName: ai_study_assistant
     plan: free
