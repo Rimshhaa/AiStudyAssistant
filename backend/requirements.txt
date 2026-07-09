@@ -5,6 +5,7 @@ flask-sqlalchemy==3.1.1
 psycopg2-binary==2.9.9
 werkzeug==3.0.3
 python-dotenv==1.0.1
-google-generativeai==0.7.2
+google-generativeai==0.8.3
+protobuf==4.25.3
 PyPDF2==3.0.1
 gunicorn==22.0.0
