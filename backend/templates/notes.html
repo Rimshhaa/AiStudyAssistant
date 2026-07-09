@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Study Assistant – Q&A Notes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        .answer-box { display: none; }
+        .answer-box.open { display: block; animation: slideDown 0.25s ease-out; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+        .qa-card { transition: all 0.2s ease; cursor: pointer; }
+        .qa-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+        @media print {
+            .no-print { display: none !important; }
+            .ml-64 { margin-left: 0 !important; }
+            .answer-box { display: block !important; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="flex">
+        <!-- Sidebar -->
+        <div class="w-68 bg-white h-screen shadow-xl fixed">
+        <div class="p-6">
+            <div class="flex items-center gap-3 mb-8">
+                <div class="w-10 h-10 bg-indigo-700 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-brain text-white"></i>
+                </div>
+                <h1 class="font-bold text-xl text-indigo-700">AI Study Assistant</h1>
+            </div>
+                <nav class="space-y-2">
+                    <a href="/upload" class="flex items-center gap-3 px-4 py-3 rounded-lg">📤 Upload PDF</a>
+                    <a href="/summary" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg">📋 Summary</a>
+                    <a href="/notes" class="flex items-center gap-3 px-4 py-3 bg-indigo-50 text-indigo-600 rounded-lg">📝 Q&A Notes</a>
+                    <a href="/questions" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg">🎯 Assessment</a>
+                    <a href="/analytics" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg">📊 Analytics</a>
+                </nav>
+                <button onclick="logout()" class="absolute bottom-6 left-6 right-6 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600">
+                    Logout
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="ml-64 flex-1 p-8">
+
+            <!-- No Data State -->
+            <div id="noDataMsg" class="hidden bg-white rounded-2xl shadow-xl p-12 text-center">
+                <i class="fas fa-sticky-note text-5xl text-gray-300 mb-4"></i>
+                <h2 class="text-2xl font-bold text-gray-700 mb-2">No Notes Yet</h2>
+                <p class="text-gray-500 mb-6">Upload a PDF and choose "Generate Notes" to get AI-created Q&A study notes here.</p>
+                <a href="/upload" class="inline-block bg-purple-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-purple-700 transition">
+                    <i class="fas fa-cloud-upload-alt mr-2"></i> Upload PDF
+                </a>
+            </div>
+
+            <!-- Notes Content -->
+            <div id="notesContent" class="hidden">
+
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-800" id="docTitle">Q&A Study Notes</h1>
+                        <p class="text-gray-500 mt-1">AI-generated Q&A notes — click any question to reveal the answer</p>
+                    </div>
+                    <div class="flex gap-3 no-print">
+                        <button onclick="toggleAll(true)" class="flex items-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-2 rounded-lg transition text-sm">
+                            <i class="fas fa-eye"></i> All
+                        </button>
+                        <button onclick="toggleAll(false)" class="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition text-sm">
+                            <i class="fas fa-eye-slash"></i> All
+                        </button>
+                        <button onclick="window.print()" class="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition text-sm">
+                            <i class="fas fa-print"></i> Print
+                        </button>
+                        <a href="/upload" class="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition text-sm">
+                            <i class="fas fa-plus"></i> PDF
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="bg-white rounded-xl p-4 shadow text-center">
+                        <div class="text-2xl font-bold text-purple-600" id="qaCount">0</div>
+                        <div class="text-sm text-gray-500">Q&A Pairs</div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow text-center">
+                        <div class="text-2xl font-bold text-blue-600" id="catCount">0</div>
+                        <div class="text-sm text-gray-500">Topics</div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow text-center">
+                        <div class="text-2xl font-bold text-green-600" id="revealedCount">0</div>
+                        <div class="text-sm text-gray-500">Revealed</div>
+                    </div>
+                </div>
+
+                <!-- Topic Filter Pills -->
+                <div class="mb-6 no-print">
+                    <div id="topicPills" class="flex flex-wrap gap-2"></div>
+                </div>
+
+                <!-- Q&A Container -->
+                <div id="qaContainer" class="space-y-3"></div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('accessToken');
+        if (!token) window.location.href = '/login';
+
+        let allCards = [];
+        let revealed = 0;
+
+        function loadNotes() {
+            const raw = localStorage.getItem('aiNotesData');
+            if (!raw) {
+                document.getElementById('noDataMsg').classList.remove('hidden');
+                return;
+            }
+
+            const data = JSON.parse(raw);
+            document.getElementById('notesContent').classList.remove('hidden');
+            document.getElementById('docTitle').textContent = data.title || 'Q&A Study Notes';
+
+            const qaPairs = data.qa_notes || [];
+            document.getElementById('qaCount').textContent = qaPairs.length;
+
+            // Get unique categories
+            const categories = [...new Set(qaPairs.map(q => q.category))];
+            document.getElementById('catCount').textContent = categories.length;
+
+            // Topic filter pills
+            const pillColors = ['blue', 'purple', 'green', 'orange', 'pink', 'indigo', 'teal'];
+            let activeFilter = 'all';
+
+            const pillsHtml = `
+                <button class="topic-pill px-3 py-1.5 rounded-full text-sm font-medium bg-gray-800 text-white transition" 
+                        data-cat="all" onclick="filterBy('all')">All Topics</button>
+                ${categories.map((c, i) => {
+                    const col = pillColors[i % pillColors.length];
+                    return `<button class="topic-pill px-3 py-1.5 rounded-full text-sm font-medium bg-${col}-100 text-${col}-700 hover:bg-${col}-200 transition"
+                                data-cat="${c}" onclick="filterBy('${c}')">${c}</button>`;
+                }).join('')}`;
+            document.getElementById('topicPills').innerHTML = pillsHtml;
+
+            // Render Q&A cards
+            renderCards(qaPairs);
+        }
+
+        function renderCards(qaPairs) {
+            const catColors = ['border-blue-400', 'border-purple-400', 'border-green-400', 'border-orange-400', 'border-pink-400', 'border-indigo-400', 'border-teal-400'];
+            const cats = [...new Set(qaPairs.map(q => q.category))];
+
+            document.getElementById('qaContainer').innerHTML = qaPairs.map((qa, idx) => {
+                const catIdx = cats.indexOf(qa.category);
+                const borderColor = catColors[catIdx % catColors.length];
+                return `
+                <div class="qa-card bg-white rounded-xl shadow p-5 border-l-4 ${borderColor}" 
+                     data-cat="${qa.category}" data-idx="${idx}"
+                     onclick="toggleAnswer(${idx})">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="flex-1">
+                            <div class="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">${qa.category}</div>
+                            <p class="font-semibold text-gray-800 leading-snug">Q${idx + 1}. ${qa.question}</p>
+                        </div>
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center no-print">
+                            <i class="fas fa-chevron-down text-purple-600 text-xs toggle-icon-${idx} transition-transform"></i>
+                        </div>
+                    </div>
+                    <div class="answer-box mt-4 pt-4 border-t border-gray-100" id="answer-${idx}">
+                        <div class="flex items-start gap-2">
+                            <i class="fas fa-lightbulb text-yellow-500 mt-0.5 flex-shrink-0"></i>
+                            <p class="text-gray-700 leading-relaxed">${qa.answer}</p>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            allCards = qaPairs;
+        }
+
+        function toggleAnswer(idx) {
+            const box = document.getElementById('answer-' + idx);
+            const icon = document.querySelector('.toggle-icon-' + idx);
+            const isOpen = box.classList.contains('open');
+            if (isOpen) {
+                box.classList.remove('open');
+                icon && icon.classList.remove('rotate-180');
+                revealed = Math.max(0, revealed - 1);
+            } else {
+                box.classList.add('open');
+                icon && icon.classList.add('rotate-180');
+                revealed++;
+            }
+            document.getElementById('revealedCount').textContent = revealed;
+        }
+
+        function toggleAll(show) {
+            revealed = 0;
+            document.querySelectorAll('.answer-box').forEach((box, idx) => {
+                if (show) {
+                    box.classList.add('open');
+                    const icon = document.querySelector('.toggle-icon-' + idx);
+                    icon && icon.classList.add('rotate-180');
+                    revealed++;
+                } else {
+                    box.classList.remove('open');
+                    const icon = document.querySelector('.toggle-icon-' + idx);
+                    icon && icon.classList.remove('rotate-180');
+                }
+            });
+            document.getElementById('revealedCount').textContent = revealed;
+        }
+
+        function filterBy(cat) {
+            document.querySelectorAll('.topic-pill').forEach(pill => {
+                if (pill.dataset.cat === cat) {
+                    pill.classList.add('bg-gray-800', 'text-white');
+                    pill.classList.remove('bg-opacity-50');
+                } else {
+                    pill.classList.remove('bg-gray-800', 'text-white');
+                }
+            });
+
+            document.querySelectorAll('.qa-card').forEach(card => {
+                if (cat === 'all' || card.dataset.cat === cat) {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/login';
+        }
+
+        loadNotes();
+    </script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Study Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-gray-100">
+    <div class="flex">
+        <div class="w-68 bg-white h-screen shadow-xl fixed">
+        <div class="p-6">
+            <div class="flex items-center gap-3 mb-8">
+                <div class="w-10 h-10 bg-indigo-700 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-brain text-white"></i>
+                </div>
+                <h1 class="font-bold text-xl text-indigo-700">AI Study Assistant</h1>
+            </div>
+    
+                <nav class="space-y-2">
+                    
+                    <a href="/upload" class="flex items-center gap-3 px-4 py-3 bg-indigo-50 text-indigo-600 rounded-lg">📤 Upload PDF</a>
+                    <a href="/summary" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg">📋 Summary</a>
+                    <a href="/notes" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg">📝 Q&A Notes</a>
+                    <a href="/questions" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg">🎯 Assessment</a>
+                </nav>
+                <button onclick="logout()" class="absolute bottom-6 left-6 right-6 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600">
+                    Logout
+                </button>
+            </div>
+        </div>
+        <div class="ml-64 flex-1 p-8">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+    <script>
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/login';
+        }
+        
+        const token = localStorage.getItem('accessToken');
+        if (!token && window.location.pathname !== '/login') {
+            window.location.href = '/login';
+        }
+    </script>
+</body>
+</html>

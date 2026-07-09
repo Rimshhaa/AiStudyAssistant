@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Study Assistant - Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+        .score-ring { stroke-dasharray: 282; stroke-dashoffset: 282; transition: stroke-dashoffset 1.2s ease; }
+    </style>
+</head>
+<body class="bg-gray-100">
+<div class="flex">
+    <!-- Sidebar -->
+    <div class="w-68 bg-white h-screen shadow-xl fixed">
+        <div class="p-6">
+            <div class="flex items-center gap-3 mb-8">
+                <div class="w-10 h-10 bg-indigo-700 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-brain text-white"></i>
+                </div>
+                <h1 class="font-bold text-xl text-indigo-700">AI Study Assistant</h1>
+            </div>
+            <nav class="space-y-2">
+                <a href="/upload" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg">📤 Upload PDF</a>
+                <a href="/summary" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg">📋 Summary</a>
+                <a href="/notes" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg">📝 Q&A Notes</a>
+                <a href="/questions" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 rounded-lg">🎯 Assessment</a>
+                <a href="/analytics" class="flex items-center gap-3 px-4 py-3 bg-indigo-50 text-indigo-600 rounded-lg">📊 Analytics</a>
+            </nav>
+            <button onclick="logout()" class="absolute bottom-6 left-6 right-6 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600">
+                Logout
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="ml-64 flex-1 p-8">
+
+        <!-- Page Header -->
+        <div class="mb-8 fade-in">
+            <h1 class="text-3xl font-bold text-gray-800 mb-1">📊 Results & Analytics</h1>
+            <p class="text-gray-500" id="resultTimestamp">Loading your latest results...</p>
+        </div>
+
+        <!-- Loading -->
+        <div id="loadingState" class="text-center py-20 text-gray-400">
+            <i class="fas fa-spinner fa-spin text-5xl mb-4"></i>
+            <p class="text-lg">Loading your results from the database...</p>
+        </div>
+
+        <!-- No Results -->
+        <div id="noResults" class="hidden text-center py-20">
+            <i class="fas fa-chart-bar text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-2xl font-bold text-gray-600 mb-2">No Assessment Results Yet</h3>
+            <p class="text-gray-500 mb-6">Complete an assessment to see your performance analytics here.</p>
+            <a href="/upload" class="inline-block bg-indigo-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition">
+                <i class="fas fa-upload mr-2"></i>Upload a PDF & Take Assessment
+            </a>
+        </div>
+
+        <!-- Results Content -->
+        <div id="resultsContent" class="hidden fade-in space-y-8">
+
+            <!-- Score Hero -->
+            <div class="bg-white rounded-2xl shadow-xl p-8">
+                <div class="flex flex-col md:flex-row items-center gap-8">
+                    <!-- Score Ring -->
+                    <div class="relative w-44 h-44 flex-shrink-0">
+                        <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="#e5e7eb" stroke-width="8"/>
+                            <circle id="scoreCircle" cx="50" cy="50" r="45" fill="none"
+                                    stroke="#6366f1" stroke-width="8" stroke-linecap="round"
+                                    class="score-ring"/>
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span class="text-4xl font-bold text-indigo-600" id="scorePercent">0%</span>
+                            <span class="text-xs text-gray-500 font-medium">Overall Score</span>
+                        </div>
+                    </div>
+
+                    <!-- Summary -->
+                    <div class="flex-1">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4" id="performanceLabel">Loading...</h2>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="bg-green-50 rounded-xl p-4 text-center">
+                                <div class="text-2xl font-bold text-green-600" id="correctCount">0</div>
+                                <div class="text-xs text-gray-500 mt-1">Correct MCQs</div>
+                            </div>
+                            <div class="bg-red-50 rounded-xl p-4 text-center">
+                                <div class="text-2xl font-bold text-red-500" id="wrongCount">0</div>
+                                <div class="text-xs text-gray-500 mt-1">Wrong MCQs</div>
+                            </div>
+                            <div class="bg-indigo-50 rounded-xl p-4 text-center">
+                                <div class="text-2xl font-bold text-indigo-600" id="totalMcqs">0</div>
+                                <div class="text-xs text-gray-500 mt-1">Total MCQs</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Weak Areas & Strong Areas -->
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- Weak Areas -->
+                <div class="bg-white rounded-2xl shadow-xl p-6">
+                    <h2 class="text-xl font-bold text-red-600 mb-4 flex items-center gap-2">
+                        <i class="fas fa-exclamation-triangle"></i> Weak Areas
+                    </h2>
+                    <p class="text-sm text-gray-500 mb-4">Topics where you scored below 50% — focus your revision here.</p>
+                    <div id="weakAreasList">
+                        <div class="text-gray-400 text-sm italic">Loading...</div>
+                    </div>
+                </div>
+
+                <!-- Strong Areas -->
+                <div class="bg-white rounded-2xl shadow-xl p-6">
+                    <h2 class="text-xl font-bold text-green-600 mb-4 flex items-center gap-2">
+                        <i class="fas fa-star"></i> Strong Areas
+                    </h2>
+                    <p class="text-sm text-gray-500 mb-4">Topics where you scored 70% or more — keep it up!</p>
+                    <div id="strongAreasList">
+                        <div class="text-gray-400 text-sm italic">Loading...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Topic-wise Performance -->
+            <div class="bg-white rounded-2xl shadow-xl p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <i class="fas fa-th-list text-indigo-500"></i> Topic-wise Performance
+                </h2>
+                <div id="topicPerformance" class="space-y-4"></div>
+            </div>
+
+            <!-- Charts -->
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-2xl shadow-xl p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">Topic Score Breakdown</h2>
+                    <canvas id="topicChart" height="220"></canvas>
+                </div>
+                <div class="bg-white rounded-2xl shadow-xl p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">Score History (All Attempts)</h2>
+                    <canvas id="historyChart" height="220"></canvas>
+                </div>
+            </div>
+
+            <!-- MCQ Answer Review -->
+            <div class="bg-white rounded-2xl shadow-xl p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <i class="fas fa-clipboard-check text-indigo-500"></i> MCQ Answer Review
+                </h2>
+                <div id="answerReview" class="space-y-3"></div>
+            </div>
+
+            <!-- Descriptive Answers -->
+            <div class="bg-white rounded-2xl shadow-xl p-6" id="descSection">
+                <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <i class="fas fa-pen text-purple-500"></i> Your Descriptive Answers
+                </h2>
+                <div id="descReview" class="space-y-4"></div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex gap-4 justify-center pb-8">
+                <a href="/upload" class="bg-indigo-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition">
+                    <i class="fas fa-redo mr-2"></i>Try Another PDF
+                </a>
+                <a href="/questions" class="bg-gray-200 text-gray-700 px-8 py-3 rounded-xl font-semibold hover:bg-gray-300 transition">
+                    <i class="fas fa-arrow-left mr-2"></i>Back to Questions
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const token = localStorage.getItem('accessToken');
+if (!token) window.location.href = '/login';
+
+function logout() { localStorage.clear(); window.location.href = '/login'; }
+
+function performanceLabel(score) {
+    if (score >= 80) return '🏆 Excellent Performance!';
+    if (score >= 60) return '👍 Good Job! Room to improve.';
+    if (score >= 40) return '📚 Fair — Keep Practising!';
+    return '💪 Needs More Revision';
+}
+
+function topicColor(pct) {
+    if (pct >= 70) return { bar: 'bg-green-500', text: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200' };
+    if (pct >= 50) return { bar: 'bg-yellow-400', text: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200' };
+    return { bar: 'bg-red-500', text: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' };
+}
+
+async function loadResults() {
+    try {
+        // Load latest result
+        const res = await fetch('/api/user/latest-result', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        // Load all results for history chart
+        const histRes = await fetch('/api/user/results', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const allResults = await histRes.json();
+
+        document.getElementById('loadingState').classList.add('hidden');
+
+        if (!result) {
+            document.getElementById('noResults').classList.remove('hidden');
+            return;
+        }
+
+        document.getElementById('resultsContent').classList.remove('hidden');
+        document.getElementById('resultTimestamp').textContent =
+            result.submitted_at ? `Submitted on ${result.submitted_at}` : '';
+
+        // Score ring
+        const score = result.score_percent;
+        const circumference = 282;
+        const offset = circumference - (score / 100) * circumference;
+        setTimeout(() => {
+            document.getElementById('scoreCircle').style.strokeDashoffset = offset;
+            if (score >= 70) document.getElementById('scoreCircle').setAttribute('stroke', '#22c55e');
+            else if (score >= 50) document.getElementById('scoreCircle').setAttribute('stroke', '#f59e0b');
+            else document.getElementById('scoreCircle').setAttribute('stroke', '#ef4444');
+        }, 300);
+
+        document.getElementById('scorePercent').textContent = score + '%';
+        document.getElementById('performanceLabel').textContent = performanceLabel(score);
+        document.getElementById('correctCount').textContent = result.correct_mcqs;
+        document.getElementById('wrongCount').textContent = result.total_mcqs - result.correct_mcqs;
+        document.getElementById('totalMcqs').textContent = result.total_mcqs;
+
+        // Weak areas
+        const weakEl = document.getElementById('weakAreasList');
+        if (result.weak_areas.length === 0) {
+            weakEl.innerHTML = '<p class="text-green-600 font-semibold">🎉 No weak areas! Great job!</p>';
+        } else {
+            weakEl.innerHTML = result.weak_areas.map(w => `
+                <div class="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-lg mb-2">
+                    <i class="fas fa-times-circle text-red-500"></i>
+                    <span class="font-medium text-gray-800">${w}</span>
+                    <span class="ml-auto text-xs bg-red-200 text-red-700 px-2 py-0.5 rounded-full">Needs work</span>
+                </div>
+            `).join('');
+        }
+
+        // Strong areas
+        const strongEl = document.getElementById('strongAreasList');
+        if (result.strong_areas.length === 0) {
+            strongEl.innerHTML = '<p class="text-gray-400 text-sm italic">Keep studying to build strong areas!</p>';
+        } else {
+            strongEl.innerHTML = result.strong_areas.map(s => `
+                <div class="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg mb-2">
+                    <i class="fas fa-check-circle text-green-500"></i>
+                    <span class="font-medium text-gray-800">${s}</span>
+                    <span class="ml-auto text-xs bg-green-200 text-green-700 px-2 py-0.5 rounded-full">Strong</span>
+                </div>
+            `).join('');
+        }
+
+        // Topic-wise performance bars
+        const topicsData = result.topics_data;
+        if (topicsData.length > 0) {
+            document.getElementById('topicPerformance').innerHTML = topicsData.map(t => {
+                const c = topicColor(t.percent);
+                return `
+                    <div class="p-4 rounded-xl border ${c.bg} ${c.border}">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-semibold text-gray-800">${t.topic}</span>
+                            <span class="text-sm font-bold ${c.text}">${t.correct}/${t.total} (${t.percent}%)</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="${c.bar} h-2.5 rounded-full transition-all duration-700" style="width:${t.percent}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Topic bar chart
+        if (topicsData.length > 0) {
+            new Chart(document.getElementById('topicChart'), {
+                type: 'bar',
+                data: {
+                    labels: topicsData.map(t => t.topic.length > 18 ? t.topic.slice(0, 18) + '…' : t.topic),
+                    datasets: [{
+                        label: 'Score %',
+                        data: topicsData.map(t => t.percent),
+                        backgroundColor: topicsData.map(t => t.percent >= 70 ? '#22c55e' : t.percent >= 50 ? '#f59e0b' : '#ef4444'),
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } }
+                    }
+                }
+            });
+        }
+
+        // History line chart
+        if (allResults.length > 0) {
+            new Chart(document.getElementById('historyChart'), {
+                type: 'line',
+                data: {
+                    labels: allResults.map((r, i) => `Attempt ${i + 1}`),
+                    datasets: [{
+                        label: 'Score %',
+                        data: allResults.map(r => r.score_percent),
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99,102,241,0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#6366f1',
+                        pointRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } }
+                    }
+                }
+            });
+        }
+
+        // MCQ answer review
+        const mcqAnswers = result.mcq_answers;
+        if (mcqAnswers.length > 0) {
+            document.getElementById('answerReview').innerHTML = mcqAnswers.map((a, idx) => {
+                const isCorrect = a.selected === a.correct;
+                const unanswered = !a.selected;
+                return `
+                    <div class="p-4 rounded-xl border ${isCorrect ? 'bg-green-50 border-green-200' : unanswered ? 'bg-gray-50 border-gray-200' : 'bg-red-50 border-red-200'}">
+                        <div class="flex items-start gap-3">
+                            <span class="mt-0.5 text-lg">${isCorrect ? '✅' : unanswered ? '⬜' : '❌'}</span>
+                            <div class="flex-1">
+                                <p class="font-semibold text-gray-800 mb-1">${idx + 1}. ${a.question}</p>
+                                <p class="text-sm text-gray-600">
+                                    Your answer: <span class="font-medium ${isCorrect ? 'text-green-700' : 'text-red-700'}">${a.selected || 'Not answered'}</span>
+                                </p>
+                                ${!isCorrect ? `<p class="text-sm text-gray-600 mt-1">Correct answer: <span class="font-medium text-green-700">${a.correct}</span></p>` : ''}
+                                <span class="inline-block mt-2 text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">${a.topic || 'General'}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Descriptive answers
+        const descAnswers = result.descriptive_answers;
+        if (descAnswers.length > 0) {
+            document.getElementById('descReview').innerHTML = descAnswers.map((d, idx) => `
+                <div class="p-5 bg-purple-50 border border-purple-200 rounded-xl">
+                    <p class="font-semibold text-gray-800 mb-2">Q${idx + 1}: ${d.question}</p>
+                    <div class="bg-white p-3 rounded-lg border border-purple-100">
+                        <p class="text-gray-700 text-sm whitespace-pre-wrap">${d.answer || '<span class="text-gray-400 italic">No answer provided</span>'}</p>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            document.getElementById('descSection').classList.add('hidden');
+        }
+
+    } catch (e) {
+        console.error(e);
+        document.getElementById('loadingState').classList.add('hidden');
+        document.getElementById('noResults').classList.remove('hidden');
+    }
+}
+
+loadResults();
+</script>
+</body>
+</html>

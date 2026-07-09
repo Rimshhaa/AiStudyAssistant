@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Study Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mx-auto px-4 py-20">
+        <div class="max-w-md mx-auto">
+            <div class="bg-white rounded-2xl shadow-2xl p-8">
+                <div class="text-center mb-8">
+                    <h1 class="text-4xl font-bold text-gray-800">🎓 AI Study Assistant</h1>
+                </div>
+                
+                <div id="message" class="mb-4"></div>
+                
+                <!-- Login Form -->
+                <div id="loginSection">
+                    <input type="text" id="username" placeholder="Username" 
+                           class="w-full mb-3 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="password" id="password" placeholder="Password" 
+                           class="w-full mb-6 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <button onclick="login()" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition">
+                        Login
+                    </button>
+                </div>
+                
+                <!-- Register Form -->
+                <div id="registerSection" class="hidden">
+                    <input type="text" id="regUsername" placeholder="Choose Username" 
+                           class="w-full mb-3 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="password" id="regPassword" placeholder="Choose Password" 
+                           class="w-full mb-6 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <button onclick="register()" class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+                        Create Account
+                    </button>
+                </div>
+                
+                <div class="mt-6 text-center">
+                    <button onclick="toggleForm()" id="toggleBtn" class="text-indigo-600 hover:text-indigo-700">
+                        Don't have an account? Sign Up
+                    </button>
+                </div>
+            </div>
+            
+            <div class="mt-6 text-center text-white text-sm">
+                <p>✨ Demo: Register first, then login with same credentials</p>
+                <p class="mt-1">🎯 Upload any PDF to generate AI questions instantly!</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let isLogin = true;
+        
+        function toggleForm() {
+            isLogin = !isLogin;
+            if (isLogin) {
+                document.getElementById('loginSection').classList.remove('hidden');
+                document.getElementById('registerSection').classList.add('hidden');
+                document.getElementById('toggleBtn').innerHTML = "Don't have an account? Sign Up";
+            } else {
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('registerSection').classList.remove('hidden');
+                document.getElementById('toggleBtn').innerHTML = "Already have an account? Login";
+            }
+        }
+        
+        function showMessage(msg, isError) {
+            const msgDiv = document.getElementById('message');
+            msgDiv.innerHTML = `<div class="p-3 rounded-lg ${isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${msg}</div>`;
+            setTimeout(() => {
+                msgDiv.innerHTML = '';
+            }, 3000);
+        }
+        
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                showMessage('Please enter username and password', true);
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.token) {
+                    localStorage.setItem('accessToken', data.token);
+                    localStorage.setItem('username', data.username);
+                    showMessage('Login successful! Redirecting...', false);
+                    setTimeout(() => {
+                        window.location.href = '/upload';
+                    }, 1000);
+                } else {
+                    showMessage(data.msg || 'Invalid credentials', true);
+                }
+            } catch(error) {
+                showMessage('Error: ' + error.message, true);
+            }
+        }
+        
+        async function register() {
+            const username = document.getElementById('regUsername').value;
+            const password = document.getElementById('regPassword').value;
+            
+            if (!username || !password) {
+                showMessage('Please enter username and password', true);
+                return;
+            }
+            
+            if (password.length < 3) {
+                showMessage('Password must be at least 3 characters', true);
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('Registration successful! Please login.', false);
+                    setTimeout(() => {
+                        toggleForm();
+                        document.getElementById('username').value = username;
+                    }, 1500);
+                } else {
+                    showMessage(data.msg || 'Registration failed', true);
+                }
+            } catch(error) {
+                showMessage('Error: ' + error.message, true);
+            }
+        }
+    </script>
+</body>
+</html>
